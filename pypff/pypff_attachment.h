@@ -35,6 +35,14 @@ extern "C" {
 extern PyMethodDef pypff_attachment_object_methods[];
 extern PyTypeObject pypff_attachment_type_object;
 
+PyObject *pypff_attachment_get_type(
+           pypff_item_t *pypff_item,
+           PyObject *arguments );
+
+PyObject *pypff_attachment_get_item(
+           pypff_item_t *pypff_item,
+           PyObject *arguments );
+
 PyObject *pypff_attachment_get_long_filename(
            pypff_item_t *pypff_item,
            PyObject *arguments );

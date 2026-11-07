@@ -76,6 +76,23 @@ PyObject *pypff_folder_get_sub_messages(
            pypff_item_t *pypff_item,
            PyObject *arguments );
 
+PyObject *pypff_folder_get_number_of_sub_associated_contents(
+           pypff_item_t *pypff_item,
+           PyObject *arguments );
+
+PyObject *pypff_folder_get_sub_associated_content_by_index(
+           PyObject *pypff_item,
+           int sub_associated_content_index );
+
+PyObject *pypff_folder_get_sub_associated_content(
+           pypff_item_t *pypff_item,
+           PyObject *arguments,
+           PyObject *keywords );
+
+PyObject *pypff_folder_get_sub_associated_contents(
+           pypff_item_t *pypff_item,
+           PyObject *arguments );
+
 #if defined( __cplusplus )
 }
 #endif

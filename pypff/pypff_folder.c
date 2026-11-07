@@ -79,6 +79,20 @@ PyMethodDef pypff_folder_object_methods[] = {
 	  "\n"
 	  "Retrieves a specific sub message." },
 
+	{ "get_number_of_sub_associated_contents",
+	  (PyCFunction) pypff_folder_get_number_of_sub_associated_contents,
+	  METH_NOARGS,
+	  "get_number_of_sub_associated_contents() -> Integer\n"
+	  "\n"
+	  "Retrieves the number of sub associated contents (hidden items)." },
+
+	{ "get_sub_associated_content",
+	  (PyCFunction) pypff_folder_get_sub_associated_content,
+	  METH_VARARGS | METH_KEYWORDS,
+	  "get_sub_associated_content(sub_associated_content_index) -> Object or None\n"
+	  "\n"
+	  "Retrieves a specific sub associated content (hidden item)." },
+
 	/* Sentinel */
 	{ NULL, NULL, 0, NULL }
 };
@@ -113,6 +127,18 @@ PyGetSetDef pypff_folder_object_get_set_definitions[] = {
 	  (getter) pypff_folder_get_sub_messages,
 	  (setter) 0,
 	  "The sub messages",
+	  NULL },
+
+	{ "number_of_sub_associated_contents",
+	  (getter) pypff_folder_get_number_of_sub_associated_contents,
+	  (setter) 0,
+	  "The number of sub associated contents.",
+	  NULL },
+
+	{ "sub_associated_contents",
+	  (getter) pypff_folder_get_sub_associated_contents,
+	  (setter) 0,
+	  "The sub associated contents.",
 	  NULL },
 
 	/* Sentinel */
@@ -811,3 +837,244 @@ PyObject *pypff_folder_get_sub_messages(
 	return( sub_items_object );
 }
 
+/* Retrieves the number of sub associated contents
+ * Returns a Python object if successful or NULL on error
+ */
+PyObject *pypff_folder_get_number_of_sub_associated_contents(
+           pypff_item_t *pypff_item,
+           PyObject *arguments PYPFF_ATTRIBUTE_UNUSED )
+{
+	libcerror_error_t *error              = NULL;
+	PyObject *integer_object              = NULL;
+	static char *function                 = "pypff_folder_get_number_of_sub_associated_contents";
+	int number_of_sub_associated_contents = 0;
+	int result                            = 0;
+
+	PYPFF_UNREFERENCED_PARAMETER( arguments )
+
+	if( pypff_item == NULL )
+	{
+		PyErr_Format(
+		 PyExc_TypeError,
+		 "%s: invalid item.",
+		 function );
+
+		return( NULL );
+	}
+	Py_BEGIN_ALLOW_THREADS
+
+	result = libpff_folder_get_number_of_sub_associated_contents(
+	          pypff_item->item,
+	          &number_of_sub_associated_contents,
+	          &error );
+
+	Py_END_ALLOW_THREADS
+
+	if( result != 1 )
+	{
+		pypff_error_raise(
+		 error,
+		 PyExc_IOError,
+		 "%s: unable to retrieve number of sub associated contents.",
+		 function );
+
+		libcerror_error_free(
+		 &error );
+
+		return( NULL );
+	}
+#if PY_MAJOR_VERSION >= 3
+	integer_object = PyLong_FromLong(
+	                  (long) number_of_sub_associated_contents );
+#else
+	integer_object = PyInt_FromLong(
+	                  (long) number_of_sub_associated_contents );
+#endif
+	return( integer_object );
+}
+
+/* Retrieves a specific sub associated content by index
+ * Returns a Python object if successful or NULL on error
+ */
+PyObject *pypff_folder_get_sub_associated_content_by_index(
+           PyObject *pypff_item,
+           int sub_associated_content_index )
+{
+	libcerror_error_t *error  = NULL;
+	libpff_item_t *sub_item   = NULL;
+	PyObject *sub_item_object = NULL;
+	static char *function     = "pypff_folder_get_sub_associated_content_by_index";
+	uint8_t sub_item_type     = 0;
+	int result                = 0;
+
+	if( pypff_item == NULL )
+	{
+		PyErr_Format(
+		 PyExc_TypeError,
+		 "%s: invalid item.",
+		 function );
+
+		return( NULL );
+	}
+	Py_BEGIN_ALLOW_THREADS
+
+	result = libpff_folder_get_sub_associated_content(
+	          ( (pypff_item_t *) pypff_item )->item,
+	          sub_associated_content_index,
+	          &sub_item,
+	          &error );
+
+	Py_END_ALLOW_THREADS
+
+	if( result != 1 )
+	{
+		pypff_error_raise(
+		 error,
+		 PyExc_IOError,
+		 "%s: unable to retrieve sub associated content: %d.",
+		 function,
+		 sub_associated_content_index );
+
+		libcerror_error_free(
+		 &error );
+
+		goto on_error;
+	}
+	Py_BEGIN_ALLOW_THREADS
+
+	result = libpff_item_get_type(
+	          sub_item,
+	          &sub_item_type,
+	          &error );
+
+	Py_END_ALLOW_THREADS
+
+	if( result != 1 )
+	{
+		pypff_error_raise(
+		 error,
+		 PyExc_IOError,
+		 "%s: unable to retrieve sub associated content: %d type.",
+		 function,
+		 sub_associated_content_index );
+
+		libcerror_error_free(
+		 &error );
+
+		goto on_error;
+	}
+	sub_item_object = pypff_item_create(
+	                   sub_item,
+	                   pypff_item );
+
+	if( sub_item_object == NULL )
+	{
+		PyErr_Format(
+		 PyExc_MemoryError,
+		 "%s: unable to create sub associated content object.",
+		 function );
+
+		goto on_error;
+	}
+	return( sub_item_object );
+
+on_error:
+	if( sub_item != NULL )
+	{
+		libpff_item_free(
+		 &sub_item,
+		 NULL );
+	}
+	return( NULL );
+}
+
+/* Retrieves a specific sub associated content
+ * Returns a Python object if successful or NULL on error
+ */
+PyObject *pypff_folder_get_sub_associated_content(
+           pypff_item_t *pypff_item,
+           PyObject *arguments,
+           PyObject *keywords )
+{
+	PyObject *sub_item_object        = NULL;
+	static char *keyword_list[]      = { "sub_associated_content_index", NULL };
+	int sub_associated_content_index = 0;
+
+	if( PyArg_ParseTupleAndKeywords(
+	     arguments,
+	     keywords,
+	     "i",
+	     keyword_list,
+	     &sub_associated_content_index ) == 0 )
+	{
+		return( NULL );
+	}
+	sub_item_object = pypff_folder_get_sub_associated_content_by_index(
+	                   (PyObject *) pypff_item,
+	                   sub_associated_content_index );
+
+	return( sub_item_object );
+}
+
+/* Retrieves an items sequence and iterator object for the sub associated contents
+ * Returns a Python object if successful or NULL on error
+ */
+PyObject *pypff_folder_get_sub_associated_contents(
+           pypff_item_t *pypff_item,
+           PyObject *arguments PYPFF_ATTRIBUTE_UNUSED )
+{
+	libcerror_error_t *error              = NULL;
+	PyObject *sub_items_object            = NULL;
+	static char *function                 = "pypff_folder_get_sub_associated_contents";
+	int number_of_sub_associated_contents = 0;
+	int result                            = 0;
+
+	PYPFF_UNREFERENCED_PARAMETER( arguments )
+
+	if( pypff_item == NULL )
+	{
+		PyErr_Format(
+		 PyExc_TypeError,
+		 "%s: invalid item.",
+		 function );
+
+		return( NULL );
+	}
+	Py_BEGIN_ALLOW_THREADS
+
+	result = libpff_folder_get_number_of_sub_associated_contents(
+	          pypff_item->item,
+	          &number_of_sub_associated_contents,
+	          &error );
+
+	Py_END_ALLOW_THREADS
+
+	if( result != 1 )
+	{
+		pypff_error_raise(
+		 error,
+		 PyExc_IOError,
+		 "%s: unable to retrieve number of sub associated contents.",
+		 function );
+
+		libcerror_error_free(
+		 &error );
+
+		return( NULL );
+	}
+	sub_items_object = pypff_items_new(
+	                    (PyObject *) pypff_item,
+	                    &pypff_folder_get_sub_associated_content_by_index,
+	                    number_of_sub_associated_contents );
+
+	if( sub_items_object == NULL )
+	{
+		PyErr_Format(
+		 PyExc_MemoryError,
+		 "%s: unable to create sub items object.",
+		 function );
+
+		return( NULL );
+	}
+	return( sub_items_object );
+}

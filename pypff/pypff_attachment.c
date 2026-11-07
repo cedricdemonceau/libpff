@@ -39,6 +39,21 @@ PyMethodDef pypff_attachment_object_methods[] = {
 
 	/* Functions to access the attachment values */
 
+	{ "get_type",
+	  (PyCFunction) pypff_attachment_get_type,
+	  METH_NOARGS,
+	  "get_type() -> Integer\n"
+	  "\n"
+	  "Retrieves the attachment type: data ('d'), item ('i'), reference ('r')\n"
+	  "or undefined (0)." },
+
+	{ "get_item",
+	  (PyCFunction) pypff_attachment_get_item,
+	  METH_NOARGS,
+	  "get_item() -> Object or None\n"
+	  "\n"
+	  "Retrieves the attached (embedded) item, such as an attached message." },
+
 	{ "get_long_filename",
 	  (PyCFunction) pypff_attachment_get_long_filename,
 	  METH_NOARGS,
@@ -72,6 +87,18 @@ PyMethodDef pypff_attachment_object_methods[] = {
 };
 
 PyGetSetDef pypff_attachment_object_get_set_definitions[] = {
+
+	{ "attachment_type",
+	  (getter) pypff_attachment_get_type,
+	  (setter) 0,
+	  "The attachment type.",
+	  NULL },
+
+	{ "item",
+	  (getter) pypff_attachment_get_item,
+	  (setter) 0,
+	  "The attached item.",
+	  NULL },
 
 	{ "long_filename",
 	  (getter) pypff_attachment_get_long_filename,
@@ -183,6 +210,173 @@ PyTypeObject pypff_attachment_type_object = {
 	/* tp_del */
 	0
 };
+
+/* Retrieves the attachment type
+ * Returns a Python object if successful or NULL on error
+ */
+PyObject *pypff_attachment_get_type(
+           pypff_item_t *pypff_item,
+           PyObject *arguments PYPFF_ATTRIBUTE_UNUSED )
+{
+	PyObject *integer_object = NULL;
+	libcerror_error_t *error = NULL;
+	static char *function    = "pypff_attachment_get_type";
+	int attachment_type      = 0;
+	int result               = 0;
+
+	PYPFF_UNREFERENCED_PARAMETER( arguments )
+
+	if( pypff_item == NULL )
+	{
+		PyErr_Format(
+		 PyExc_TypeError,
+		 "%s: invalid item.",
+		 function );
+
+		return( NULL );
+	}
+	Py_BEGIN_ALLOW_THREADS
+
+	result = libpff_attachment_get_type(
+	          pypff_item->item,
+	          &attachment_type,
+	          &error );
+
+	Py_END_ALLOW_THREADS
+
+	if( result != 1 )
+	{
+		pypff_error_raise(
+		 error,
+		 PyExc_IOError,
+		 "%s: unable to retrieve attachment type.",
+		 function );
+
+		libcerror_error_free(
+		 &error );
+
+		return( NULL );
+	}
+#if PY_MAJOR_VERSION >= 3
+	integer_object = PyLong_FromLong(
+	                  (long) attachment_type );
+#else
+	integer_object = PyInt_FromLong(
+	                  (long) attachment_type );
+#endif
+	return( integer_object );
+}
+
+/* Retrieves the attached item
+ * Returns a Python object if successful or NULL on error
+ */
+PyObject *pypff_attachment_get_item(
+           pypff_item_t *pypff_item,
+           PyObject *arguments PYPFF_ATTRIBUTE_UNUSED )
+{
+	libcerror_error_t *error     = NULL;
+	libpff_item_t *attached_item = NULL;
+	PyObject *item_object        = NULL;
+	static char *function        = "pypff_attachment_get_item";
+	int attachment_type          = 0;
+	int result                   = 0;
+
+	PYPFF_UNREFERENCED_PARAMETER( arguments )
+
+	if( pypff_item == NULL )
+	{
+		PyErr_Format(
+		 PyExc_TypeError,
+		 "%s: invalid item.",
+		 function );
+
+		return( NULL );
+	}
+	Py_BEGIN_ALLOW_THREADS
+
+	result = libpff_attachment_get_type(
+	          pypff_item->item,
+	          &attachment_type,
+	          &error );
+
+	Py_END_ALLOW_THREADS
+
+	if( result != 1 )
+	{
+		pypff_error_raise(
+		 error,
+		 PyExc_IOError,
+		 "%s: unable to retrieve attachment type.",
+		 function );
+
+		libcerror_error_free(
+		 &error );
+
+		return( NULL );
+	}
+	/* Only an attachment of type item has an attached item, for other types
+	 * the attachment data object value contains data not an identifier
+	 */
+	if( attachment_type != LIBPFF_ATTACHMENT_TYPE_ITEM )
+	{
+		Py_IncRef(
+		 Py_None );
+
+		return( Py_None );
+	}
+	Py_BEGIN_ALLOW_THREADS
+
+	result = libpff_attachment_get_item(
+	          pypff_item->item,
+	          &attached_item,
+	          &error );
+
+	Py_END_ALLOW_THREADS
+
+	if( result == -1 )
+	{
+		pypff_error_raise(
+		 error,
+		 PyExc_IOError,
+		 "%s: unable to retrieve attached item.",
+		 function );
+
+		libcerror_error_free(
+		 &error );
+
+		goto on_error;
+	}
+	else if( result == 0 )
+	{
+		Py_IncRef(
+		 Py_None );
+
+		return( Py_None );
+	}
+	item_object = pypff_item_create(
+	               attached_item,
+	               (PyObject *) pypff_item );
+
+	if( item_object == NULL )
+	{
+		PyErr_Format(
+		 PyExc_MemoryError,
+		 "%s: unable to create attached item object.",
+		 function );
+
+		goto on_error;
+	}
+	return( item_object );
+
+on_error:
+	if( attached_item != NULL )
+	{
+		libpff_item_free(
+		 &attached_item,
+		 NULL );
+	}
+	return( NULL );
+}
 
 /* Retrieves the long filename
  * Returns a Python object if successful or NULL on error
