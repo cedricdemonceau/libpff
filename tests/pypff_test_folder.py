@@ -210,6 +210,86 @@ class FolderItemTypeTests(unittest.TestCase):
             pff_file.close()
 
 
+    def _get_folder_with_associated_contents(self, folder):
+        """Retrieves the first folder with sub associated contents for testing.
+
+        Args:
+          folder (pypff.folder): folder.
+
+        Returns:
+          pypff.folder: folder with sub associated contents or None.
+        """
+        if folder:
+            try:
+                number_of_sub_associated_contents = (
+                    folder.number_of_sub_associated_contents
+                )
+            except IOError:
+                number_of_sub_associated_contents = 0
+
+            if number_of_sub_associated_contents:
+                return folder
+
+            for sub_folder in folder.sub_folders:
+                result = self._get_folder_with_associated_contents(sub_folder)
+                if result:
+                    return result
+
+        return None
+
+    def test_get_number_of_sub_associated_contents(self):
+        """Tests the get_number_of_sub_associated_contents function and number_of_sub_associated_contents property."""
+        test_source = getattr(unittest, "source", None)
+        if not test_source:
+            raise unittest.SkipTest("missing source")
+
+        pff_file = pypff.file()
+
+        pff_file.open(test_source)
+
+        try:
+            root_folder = pff_file.get_root_folder()
+            if not root_folder:
+                raise unittest.SkipTest("missing root folder")
+
+            number_of_sub_associated_contents = (
+                root_folder.get_number_of_sub_associated_contents()
+            )
+            self.assertIsNotNone(number_of_sub_associated_contents)
+
+            self.assertIsNotNone(root_folder.number_of_sub_associated_contents)
+
+        finally:
+            pff_file.close()
+
+    def test_get_sub_associated_content(self):
+        """Tests the get_sub_associated_content function and sub_associated_contents property."""
+        test_source = getattr(unittest, "source", None)
+        if not test_source:
+            raise unittest.SkipTest("missing source")
+
+        pff_file = pypff.file()
+
+        pff_file.open(test_source)
+
+        try:
+            folder = self._get_folder_with_associated_contents(
+                pff_file.get_root_folder()
+            )
+            if not folder:
+                raise unittest.SkipTest("missing sub associated contents")
+
+            sub_associated_content = folder.get_sub_associated_content(0)
+            self.assertIsNotNone(sub_associated_content)
+
+            self.assertEqual(
+                len(folder.sub_associated_contents),
+                folder.number_of_sub_associated_contents,
+            )
+
+        finally:
+            pff_file.close()
+
 if __name__ == "__main__":
     argument_parser = argparse.ArgumentParser()
 

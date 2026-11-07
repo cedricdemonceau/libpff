@@ -166,6 +166,29 @@ PyMethodDef pypff_file_object_methods[] = {
 	  "\n"
 	  "Retrieves the orphan item specified by the index." },
 
+	{ "recover_items",
+	  (PyCFunction) pypff_file_recover_items,
+	  METH_VARARGS | METH_KEYWORDS,
+	  "recover_items(recovery_flags=0) -> None\n"
+	  "\n"
+	  "Recovers deleted items. Can be called once per opened file. By default\n"
+	  "only the unallocated space is scanned for recoverable items;\n"
+	  "flags: 0x01 ignore allocation data, 0x02 scan for fragments." },
+
+	{ "get_number_of_recovered_items",
+	  (PyCFunction) pypff_file_get_number_of_recovered_items,
+	  METH_NOARGS,
+	  "get_number_of_recovered_items() -> Integer or None\n"
+	  "\n"
+	  "Retrieves the number of recovered items." },
+
+	{ "get_recovered_item",
+	  (PyCFunction) pypff_file_get_recovered_item,
+	  METH_VARARGS | METH_KEYWORDS,
+	  "get_recovered_item(recovered_item_index) -> Object or None\n"
+	  "\n"
+	  "Retrieves the recovered item specified by the index." },
+
 	/* Sentinel */
 	{ NULL, NULL, 0, NULL }
 };
@@ -230,6 +253,18 @@ PyGetSetDef pypff_file_object_get_set_definitions[] = {
 	  (getter) pypff_file_get_orphan_items,
 	  (setter) 0,
 	  "The orphan items.",
+	  NULL },
+
+	{ "number_of_recovered_items",
+	  (getter) pypff_file_get_number_of_recovered_items,
+	  (setter) 0,
+	  "The number of recovered items.",
+	  NULL },
+
+	{ "recovered_items",
+	  (getter) pypff_file_get_recovered_items,
+	  (setter) 0,
+	  "The recovered items.",
 	  NULL },
 
 	/* Sentinel */
@@ -1914,6 +1949,295 @@ PyObject *pypff_file_get_orphan_items(
 	                   (PyObject *) pypff_file,
 	                   &pypff_file_get_orphan_item_by_index,
 	                   number_of_orphan_items );
+
+	if( sequence_object == NULL )
+	{
+		pypff_error_raise(
+		 error,
+		 PyExc_MemoryError,
+		 "%s: unable to create sequence object.",
+		 function );
+
+		return( NULL );
+	}
+	return( sequence_object );
+}
+
+/* Recovers deleted items
+ * Returns a Python object if successful or NULL on error
+ */
+PyObject *pypff_file_recover_items(
+           pypff_file_t *pypff_file,
+           PyObject *arguments,
+           PyObject *keywords )
+{
+	libcerror_error_t *error    = NULL;
+	static char *function       = "pypff_file_recover_items";
+	static char *keyword_list[] = { "recovery_flags", NULL };
+	int recovery_flags          = 0;
+	int result                  = 0;
+
+	if( pypff_file == NULL )
+	{
+		PyErr_Format(
+		 PyExc_ValueError,
+		 "%s: invalid file.",
+		 function );
+
+		return( NULL );
+	}
+	if( PyArg_ParseTupleAndKeywords(
+	     arguments,
+	     keywords,
+	     "|i",
+	     keyword_list,
+	     &recovery_flags ) == 0 )
+	{
+		return( NULL );
+	}
+	if( ( recovery_flags < 0 )
+	 || ( recovery_flags > 0xff ) )
+	{
+		PyErr_Format(
+		 PyExc_ValueError,
+		 "%s: invalid recovery flags value out of bounds.",
+		 function );
+
+		return( NULL );
+	}
+	Py_BEGIN_ALLOW_THREADS
+
+	result = libpff_file_recover_items(
+	          pypff_file->file,
+	          (uint8_t) recovery_flags,
+	          &error );
+
+	Py_END_ALLOW_THREADS
+
+	if( result != 1 )
+	{
+		pypff_error_raise(
+		 error,
+		 PyExc_IOError,
+		 "%s: unable to recover items.",
+		 function );
+
+		libcerror_error_free(
+		 &error );
+
+		return( NULL );
+	}
+	Py_IncRef(
+	 Py_None );
+
+	return( Py_None );
+}
+
+/* Retrieves the number of recovered items
+ * Returns a Python object if successful or NULL on error
+ */
+PyObject *pypff_file_get_number_of_recovered_items(
+           pypff_file_t *pypff_file,
+           PyObject *arguments PYPFF_ATTRIBUTE_UNUSED )
+{
+	PyObject *integer_object      = NULL;
+	libcerror_error_t *error      = NULL;
+	static char *function         = "pypff_file_get_number_of_recovered_items";
+	int number_of_recovered_items = 0;
+	int result                    = 0;
+
+	PYPFF_UNREFERENCED_PARAMETER( arguments )
+
+	if( pypff_file == NULL )
+	{
+		PyErr_Format(
+		 PyExc_ValueError,
+		 "%s: invalid file.",
+		 function );
+
+		return( NULL );
+	}
+	Py_BEGIN_ALLOW_THREADS
+
+	result = libpff_file_get_number_of_recovered_items(
+	          pypff_file->file,
+	          &number_of_recovered_items,
+	          &error );
+
+	Py_END_ALLOW_THREADS
+
+	if( result != 1 )
+	{
+		pypff_error_raise(
+		 error,
+		 PyExc_IOError,
+		 "%s: unable to retrieve number of recovered items.",
+		 function );
+
+		libcerror_error_free(
+		 &error );
+
+		return( NULL );
+	}
+#if PY_MAJOR_VERSION >= 3
+	integer_object = PyLong_FromLong(
+	                  (long) number_of_recovered_items );
+#else
+	integer_object = PyInt_FromLong(
+	                  (long) number_of_recovered_items );
+#endif
+	return( integer_object );
+}
+
+/* Retrieves a specific recovered item by index
+ * Returns a Python object if successful or NULL on error
+ */
+PyObject *pypff_file_get_recovered_item_by_index(
+           PyObject *pypff_file,
+           int recovered_item_index )
+{
+	PyObject *recovered_item_object = NULL;
+	libcerror_error_t *error        = NULL;
+	libpff_item_t *recovered_item   = NULL;
+	static char *function           = "pypff_file_get_recovered_item_by_index";
+	int result                      = 0;
+
+	if( pypff_file == NULL )
+	{
+		PyErr_Format(
+		 PyExc_ValueError,
+		 "%s: invalid file.",
+		 function );
+
+		return( NULL );
+	}
+	Py_BEGIN_ALLOW_THREADS
+
+	result = libpff_file_get_recovered_item_by_index(
+	          ( (pypff_file_t *) pypff_file )->file,
+	          recovered_item_index,
+	          &recovered_item,
+	          &error );
+
+	Py_END_ALLOW_THREADS
+
+	if( result != 1 )
+	{
+		pypff_error_raise(
+		 error,
+		 PyExc_IOError,
+		 "%s: unable to retrieve recovered item: %d.",
+		 function,
+		 recovered_item_index );
+
+		libcerror_error_free(
+		 &error );
+
+		goto on_error;
+	}
+	recovered_item_object = pypff_item_create(
+	                      recovered_item,
+	                      (PyObject *) pypff_file );
+
+	if( recovered_item_object == NULL )
+	{
+		PyErr_Format(
+		 PyExc_MemoryError,
+		 "%s: unable to create item object.",
+		 function );
+
+		goto on_error;
+	}
+	return( recovered_item_object );
+
+on_error:
+	if( recovered_item != NULL )
+	{
+		libpff_item_free(
+		 &recovered_item,
+		 NULL );
+	}
+	return( NULL );
+}
+
+/* Retrieves a specific recovered item
+ * Returns a Python object if successful or NULL on error
+ */
+PyObject *pypff_file_get_recovered_item(
+           pypff_file_t *pypff_file,
+           PyObject *arguments,
+           PyObject *keywords )
+{
+	PyObject *recovered_item_object = NULL;
+	static char *keyword_list[]     = { "recovered_item_index", NULL };
+	int recovered_item_index        = 0;
+
+	if( PyArg_ParseTupleAndKeywords(
+	     arguments,
+	     keywords,
+	     "i",
+	     keyword_list,
+	     &recovered_item_index ) == 0 )
+	{
+		return( NULL );
+	}
+	recovered_item_object = pypff_file_get_recovered_item_by_index(
+	                      (PyObject *) pypff_file,
+	                      recovered_item_index );
+
+	return( recovered_item_object );
+}
+
+/* Retrieves a sequence and iterator object for the recovered items
+ * Returns a Python object if successful or NULL on error
+ */
+PyObject *pypff_file_get_recovered_items(
+           pypff_file_t *pypff_file,
+           PyObject *arguments PYPFF_ATTRIBUTE_UNUSED )
+{
+	PyObject *sequence_object     = NULL;
+	libcerror_error_t *error      = NULL;
+	static char *function         = "pypff_file_get_recovered_items";
+	int number_of_recovered_items = 0;
+	int result                    = 0;
+
+	PYPFF_UNREFERENCED_PARAMETER( arguments )
+
+	if( pypff_file == NULL )
+	{
+		PyErr_Format(
+		 PyExc_ValueError,
+		 "%s: invalid file.",
+		 function );
+
+		return( NULL );
+	}
+	Py_BEGIN_ALLOW_THREADS
+
+	result = libpff_file_get_number_of_recovered_items(
+	          pypff_file->file,
+	          &number_of_recovered_items,
+	          &error );
+
+	Py_END_ALLOW_THREADS
+
+	if( result != 1 )
+	{
+		pypff_error_raise(
+		 error,
+		 PyExc_IOError,
+		 "%s: unable to retrieve number of recovered items.",
+		 function );
+
+		libcerror_error_free(
+		 &error );
+
+		return( NULL );
+	}
+	sequence_object = pypff_items_new(
+	                   (PyObject *) pypff_file,
+	                   &pypff_file_get_recovered_item_by_index,
+	                   number_of_recovered_items );
 
 	if( sequence_object == NULL )
 	{

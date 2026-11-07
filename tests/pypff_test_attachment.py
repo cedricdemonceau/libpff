@@ -92,6 +92,56 @@ class AttachmentItemTypeTests(unittest.TestCase):
         finally:
             pff_file.close()
 
+    def test_get_type(self):
+        """Tests the get_type function and attachment_type property."""
+        test_source = getattr(unittest, "source", None)
+        if not test_source:
+            raise unittest.SkipTest("missing source")
+
+        pff_file = pypff.file()
+
+        pff_file.open(test_source)
+
+        try:
+            attachment_item = self._get_attachment_sub_item(pff_file.root_folder)
+            if not attachment_item:
+                raise unittest.SkipTest("missing attachment item")
+
+            attachment_type = attachment_item.get_type()
+            self.assertIn(attachment_type, (0, ord("d"), ord("i"), ord("r")))
+
+            self.assertEqual(attachment_item.attachment_type, attachment_type)
+
+        finally:
+            pff_file.close()
+
+    def test_get_item(self):
+        """Tests the get_item function and item property."""
+        test_source = getattr(unittest, "source", None)
+        if not test_source:
+            raise unittest.SkipTest("missing source")
+
+        pff_file = pypff.file()
+
+        pff_file.open(test_source)
+
+        try:
+            attachment_item = self._get_attachment_sub_item(pff_file.root_folder)
+            if not attachment_item:
+                raise unittest.SkipTest("missing attachment item")
+
+            attached_item = attachment_item.get_item()
+            if attachment_item.get_type() == ord("i"):
+                self.assertIsNotNone(attached_item)
+                self.assertIsNotNone(attached_item.identifier)
+            else:
+                self.assertIsNone(attached_item)
+
+            _ = attachment_item.item
+
+        finally:
+            pff_file.close()
+
     # TODO: add read and seek tests
 
 

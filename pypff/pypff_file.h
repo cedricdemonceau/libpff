@@ -140,6 +140,28 @@ PyObject *pypff_file_get_orphan_items(
            pypff_file_t *pypff_file,
            PyObject *arguments );
 
+PyObject *pypff_file_recover_items(
+           pypff_file_t *pypff_file,
+           PyObject *arguments,
+           PyObject *keywords );
+
+PyObject *pypff_file_get_number_of_recovered_items(
+           pypff_file_t *pypff_file,
+           PyObject *arguments );
+
+PyObject *pypff_file_get_recovered_item_by_index(
+           PyObject *pypff_file,
+           int recovered_item_index );
+
+PyObject *pypff_file_get_recovered_item(
+           pypff_file_t *pypff_file,
+           PyObject *arguments,
+           PyObject *keywords );
+
+PyObject *pypff_file_get_recovered_items(
+           pypff_file_t *pypff_file,
+           PyObject *arguments );
+
 #if defined( __cplusplus )
 }
 #endif

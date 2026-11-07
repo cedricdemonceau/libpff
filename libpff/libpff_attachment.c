@@ -922,25 +922,45 @@ int libpff_attachment_get_item(
 				 local_descriptor_value->local_descriptors_identifier );
 			}
 #endif
-			/* Make the embedded item the sub item of the attachment
+			/* The embedded item can already have been appended to the attachment
+			 * item tree node by a previous call
 			 */
-			if( libpff_item_tree_append_identifier(
+			if( libcdata_tree_node_get_number_of_sub_nodes(
 			     internal_item->item_tree_node,
-			     embedded_object_item_identifier,
-			     local_descriptor_value->data_identifier,
-			     local_descriptor_value->local_descriptors_identifier,
-			     internal_item->item_values->recovered,
+			     &number_of_sub_nodes,
 			     error ) != 1 )
 			{
 				libcerror_error_set(
 				 error,
 				 LIBCERROR_ERROR_DOMAIN_RUNTIME,
-				 LIBCERROR_RUNTIME_ERROR_APPEND_FAILED,
-				 "%s: unable to append attached item: %" PRIu32 " to attachment item tree node.",
-				 function,
-				 embedded_object_item_identifier );
+				 LIBCERROR_RUNTIME_ERROR_GET_FAILED,
+				 "%s: unable to retrieve number of sub nodes.",
+				 function );
 
 				goto on_error;
+			}
+			if( number_of_sub_nodes == 0 )
+			{
+				/* Make the embedded item the sub item of the attachment
+				 */
+				if( libpff_item_tree_append_identifier(
+				     internal_item->item_tree_node,
+				     embedded_object_item_identifier,
+				     local_descriptor_value->data_identifier,
+				     local_descriptor_value->local_descriptors_identifier,
+				     internal_item->item_values->recovered,
+				     error ) != 1 )
+				{
+					libcerror_error_set(
+					 error,
+					 LIBCERROR_ERROR_DOMAIN_RUNTIME,
+					 LIBCERROR_RUNTIME_ERROR_APPEND_FAILED,
+					 "%s: unable to append attached item: %" PRIu32 " to attachment item tree node.",
+					 function,
+					 embedded_object_item_identifier );
+
+					goto on_error;
+				}
 			}
 			if( libpff_local_descriptor_value_free(
 			     &local_descriptor_value,

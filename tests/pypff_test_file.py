@@ -322,6 +322,60 @@ class FileTypeTests(unittest.TestCase):
 
         pff_file.close()
 
+    def test_recover_items(self):
+        """Tests the recover_items function."""
+        test_source = getattr(unittest, "source", None)
+        if not test_source:
+            raise unittest.SkipTest("missing source")
+
+        pff_file = pypff.file()
+
+        pff_file.open(test_source)
+
+        try:
+            pff_file.recover_items()
+
+            with self.assertRaises(ValueError):
+                pff_file.recover_items(recovery_flags=-1)
+
+            with self.assertRaises(ValueError):
+                pff_file.recover_items(recovery_flags=256)
+
+        finally:
+            pff_file.close()
+
+    def test_get_number_of_recovered_items(self):
+        """Tests the get_number_of_recovered_items function and number_of_recovered_items property."""
+        test_source = getattr(unittest, "source", None)
+        if not test_source:
+            raise unittest.SkipTest("missing source")
+
+        pff_file = pypff.file()
+
+        pff_file.open(test_source)
+
+        try:
+            pff_file.recover_items()
+
+            number_of_recovered_items = pff_file.get_number_of_recovered_items()
+            self.assertIsNotNone(number_of_recovered_items)
+
+            self.assertEqual(
+                pff_file.number_of_recovered_items, number_of_recovered_items
+            )
+            self.assertEqual(
+                len(pff_file.recovered_items), number_of_recovered_items
+            )
+            if number_of_recovered_items > 0:
+                recovered_item = pff_file.get_recovered_item(0)
+                self.assertIsNotNone(recovered_item)
+
+            with self.assertRaises(IOError):
+                pff_file.get_recovered_item(number_of_recovered_items)
+
+        finally:
+            pff_file.close()
+
 
 if __name__ == "__main__":
     argument_parser = argparse.ArgumentParser()
