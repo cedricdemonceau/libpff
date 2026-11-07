@@ -1,0 +1,98 @@
+# Wheels of the pypff-wheels branch of this fork, version <libpff>.post1
+# (no "+" local version: GitHub renames "+" in release asset names): Windows
+# amd64 and manylinux x86_64, CPython 3.12 and 3.13. A push to the branch
+# publishes the release "pypff-<version>" (tag created by the release, on the
+# built commit) with the wheels and their SHA-256 (SHA256SUMS), once: an
+# existing release is never replaced.
+name: build_wheels_fork
+on:
+  push:
+    branches: [pypff-wheels]
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  CIBW_BUILD: "cp312-* cp313-*"
+  CIBW_SKIP: "*-musllinux_*"
+  CIBW_ARCHS_LINUX: x86_64
+  CIBW_ARCHS_WINDOWS: AMD64
+  CIBW_TEST_SOURCES: tests
+  CIBW_TEST_COMMAND: >-
+    python tests/runtests.py &&
+    python -c "import pypff; assert all(hasattr(pypff.attachment, n) for n in ('get_type', 'get_item')); assert all(hasattr(pypff.file, n) for n in ('recover_items', 'get_number_of_recovered_items', 'get_recovered_item', 'recovered_items')); assert hasattr(pypff.folder, 'sub_associated_contents'); print('liaison complete', pypff.get_version())"
+jobs:
+  build_wheels_linux:
+    name: Build wheels on Linux
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install build dependencies
+      run: |
+        sudo apt update
+        sudo apt -y install autoconf automake autopoint build-essential git libtool pkg-config
+    - name: Prepare build
+      run: |
+        ./synclibs.sh
+        ./autogen.sh
+        ./configure
+        make sources >/dev/null
+        ./synctestdata.sh
+    - name: Build Python wheels
+      uses: pypa/cibuildwheel@v4.0.0
+      with:
+        package-dir: .
+        output-dir: dist
+    - uses: actions/upload-artifact@v7
+      with:
+        name: cibw-wheels-linux
+        path: dist/*.whl
+  build_wheels_windows:
+    name: Build wheels on Windows
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Prepare build
+      run: |
+        .\synclibs.ps1
+        .\autogen.ps1
+        .\synctestdata.ps1
+    - name: Build Python wheels
+      uses: pypa/cibuildwheel@v4.0.0
+      with:
+        package-dir: .
+        output-dir: dist
+    - uses: actions/upload-artifact@v7
+      with:
+        name: cibw-wheels-windows
+        path: dist/*.whl
+  release:
+    needs: [build_wheels_linux, build_wheels_windows]
+    if: github.ref == 'refs/heads/pypff-wheels'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/download-artifact@v8
+      with:
+        pattern: cibw-wheels-*
+        path: dist
+        merge-multiple: true
+    - name: SHA-256 of the wheels
+      run: |
+        cd dist
+        sha256sum *.whl | tee SHA256SUMS
+    - name: Publish the release (once)
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        VERSION=$(ls dist/*.whl | head -n 1 | sed -E 's#.*/libpff_python-([^-]+)-.*#\1#')
+        TAG="pypff-${VERSION}"
+        if gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+          echo "Release ${TAG} already published: not replaced."
+          exit 0
+        fi
+        gh release create "${TAG}" dist/*.whl dist/SHA256SUMS \
+          --repo "${GITHUB_REPOSITORY}" \
+          --target "${GITHUB_SHA}" \
+          --title "libpff-python ${VERSION}" \
+          --notes "Wheels of libpff-python ${VERSION}: libpff 20260926 with the completed Python bindings (attachment.get_item, recover_items, sub_associated_contents), built from commit ${GITHUB_SHA} of the pypff-wheels branch. License: LGPL-3.0-or-later. Upstream pull request: libyal/libpff."

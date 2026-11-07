@@ -1,11 +1,7 @@
 # Build Python wheels from source using cibuildwheel.
 name: build_wheels
 on:
-  pull_request:
-  push:
-  release:
-    types: [published]
-  # Allow trigger via API
+  # Fork: manual only (see build_wheels_fork.yml)
   workflow_dispatch:
 permissions: read-all
 jobs:
